@@ -457,6 +457,35 @@ impl<'r, K: 'static> FromRequest<'r> for TokenResponse<K> {
             }
         };
 
+        {
+            // Verify that the given state is the same one in the cookie.
+            // Begin a new scope so that cookies is not kept around too long.
+            let cookies = request
+                .guard::<&CookieJar<'_>>()
+                .await
+                .expect("request cookies");
+            match cookies.get_private(STATE_COOKIE_NAME) {
+                Some(ref cookie) if cookie.value() == params.state => {
+                    cookies.remove(cookie.clone());
+                }
+                other => {
+                    if other.is_some() {
+                        warn!("The OAuth2 state returned from the server did not match the stored state.");
+                    } else {
+                        error!("The OAuth2 state cookie was missing. It may have been blocked by the client?");
+                    }
+
+                    return Outcome::Failure((
+                        Status::BadRequest,
+                        Error::new_from(
+                            ErrorKind::ExchangeFailure,
+                            "The OAuth2 state returned from the server did match the stored state.",
+                        ),
+                    ));
+                }
+            }
+        }
+
         // Have the adapter perform the token exchange.
         match oauth2
             .adapter
