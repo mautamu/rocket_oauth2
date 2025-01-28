@@ -182,7 +182,7 @@ impl Adapter for HyperRustlsAdapter {
             .await
             .map_err(|e| Error::new_from(ErrorKind::ExchangeFailure, e))?;
         if !response.status().is_success() {
-            dbg!(&response.body());
+            dbg!(&response);
             return Err(Error::new(ErrorKind::ExchangeError(
                 response.status().as_u16(),
             )));
